@@ -1,0 +1,19 @@
+# Артефакты сборки
+ZERGB.exe
+*.pdb
+bin/
+obj/
+
+# Временные файлы
+*.log
+*.dsm
+*.ll
+*.bc
+*.json
+mask_processed.png
+mask_icon_src.png
+mask_on_dark.png
+
+# Среда
+.vs/
+*.user
