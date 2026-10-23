@@ -24,8 +24,8 @@ using Drawing = System.Drawing;
 [assembly: AssemblyTitle("ZERGB")]
 [assembly: AssemblyProduct("ZERGB")]
 [assembly: AssemblyDescription("Desktop widget for PC case RGB lighting control over HID (no RGB Fusion required)")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 internal static class HotKeys
 {
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
@@ -64,8 +64,6 @@ internal sealed class RgbHid
 
     private IntPtr handle = IntPtr.Zero;
     public bool ChannelFix = true;
-    public int Mode = 1;
-    public int Speed = 5;
 
     public bool IsOpen { get { return handle != IntPtr.Zero && handle != new IntPtr(-1); } }
 
@@ -319,6 +317,7 @@ internal sealed class Cfg
     public bool TopMost = false;
     public bool ChannelFix = true;
     public int Mode = 1;
+    public string Lang = "ru";
     public int Speed = 5;
     public double? Left = null, Top = null;
     public string[] Presets = { "#FF4D6D", "#FFB020", "#3DDC84", "#38BDF8", "#A78BFA", "#F5F5F5" };
@@ -375,6 +374,7 @@ internal sealed class Cfg
                     case "topmost": TopMost = v == "1"; break;
                     case "channelfix": ChannelFix = v == "1"; break;
                     case "mode": Mode = int.Parse(v); break;
+                    case "lang": Lang = v; break;
                     case "speed": Speed = int.Parse(v); break;
                     case "left": Left = double.Parse(v, CultureInfo.InvariantCulture); break;
                     case "top": Top = double.Parse(v, CultureInfo.InvariantCulture); break;
@@ -396,6 +396,7 @@ internal sealed class Cfg
             sb.AppendLine("topmost=" + (TopMost ? "1" : "0"));
             sb.AppendLine("channelfix=" + (ChannelFix ? "1" : "0"));
             sb.AppendLine("mode=" + Mode);
+            sb.AppendLine("lang=" + Lang);
             sb.AppendLine("speed=" + Speed);
             if (Left.HasValue) sb.AppendLine("left=" + Left.Value.ToString(CultureInfo.InvariantCulture));
             if (Top.HasValue) sb.AppendLine("top=" + Top.Value.ToString(CultureInfo.InvariantCulture));
@@ -431,8 +432,9 @@ internal sealed class WidgetApp
     private Slider speedSlider;
     private MusicEngine music;
     private WinForms.ToolStripMenuItem miFix;
-    private Button minBtn, closeBtn, powerBtn;
+    private Button minBtn, closeBtn, powerBtn, langBtn;
     private ToggleButton pinBtn;
+    private TextBlock briLabel, effectLabel, presetLabel, presetHint, channelsLabel, surfaceLabel;
     private ToggleButton chanFixBtn;
     private bool powerOn = true;
     private byte currentMode = 1;   // 1 статика … 8 случайный
@@ -477,7 +479,14 @@ internal sealed class WidgetApp
         speedSlider = (Slider)win.FindName("SpeedSlider");
         pinBtn = (ToggleButton)win.FindName("PinBtn");
         powerBtn = (Button)win.FindName("PowerBtn");
+        langBtn = (Button)win.FindName("LangBtn");
         chanFixBtn = (ToggleButton)win.FindName("ChanFixBtn");
+        briLabel = (TextBlock)win.FindName("BriLabel");
+        effectLabel = (TextBlock)win.FindName("EffectLabel");
+        presetLabel = (TextBlock)win.FindName("PresetLabel");
+        presetHint = (TextBlock)win.FindName("PresetHint");
+        channelsLabel = (TextBlock)win.FindName("ChannelsLabel");
+        surfaceLabel = (TextBlock)win.FindName("SurfaceLabel");
         minBtn = (Button)win.FindName("MinBtn");
         closeBtn = (Button)win.FindName("CloseBtn");
 
@@ -489,6 +498,7 @@ internal sealed class WidgetApp
 
         curR = cfg.R; curG = cfg.G; curB = cfg.B; curBri = cfg.Brightness;
         currentMode = (byte)(cfg.Mode >= 1 && cfg.Mode <= 200 ? cfg.Mode : 1);
+        Loc.Lang = (cfg.Lang == "en" ? "en" : "ru");
         speedLevel = cfg.Speed >= 0 && cfg.Speed <= 9 ? cfg.Speed : 5;
         hid.ChannelFix = cfg.ChannelFix;
 
@@ -515,8 +525,9 @@ internal sealed class WidgetApp
         BuildSpeed();
         WireEvents();
         InitTray();
+        UpdateLanguage();
 
-        if (cfg.LastError != null) SetStatus("Настройки не сохраняются: " + cfg.LastError, "#E06060");
+        if (cfg.LastError != null) SetStatus(Loc.T("st_settings") + cfg.LastError, "#E06060");
 
         bool rfClosed = CloseRgbFusion();
 
@@ -525,19 +536,19 @@ internal sealed class WidgetApp
         {
             statusDot.Fill = Brush("#3DDC84");
             if (IsRgbFusionRunning())
-                SetStatus("RGB Fusion запущен с правами админа — закройте через меню трея", "#E0A060");
+                SetStatus(Loc.T("st_rf_admin"), "#E0A060");
             else
-                SetStatus(rfClosed ? "RGB Fusion закрыт, прямое управление (HID)" : "Прямое управление (HID)", "#3DDC84");
+                SetStatus(rfClosed ? Loc.T("st_rf_closed") : Loc.T("st_hid"), "#3DDC84");
             hid.SetEffect(currentMode, curR, curG, curB, curBri, speedLevel);
         }
         else
         {
             statusDot.Fill = Brush("#E06060");
-            SetStatus("Контроллер подсветки не найден", "#E06060");
+            SetStatus(Loc.T("st_notfound"), "#E06060");
         }
 
         cfg.Save();
-        if (cfg.LastError != null) SetStatus("Настройки: " + cfg.LastError, "#E06060");
+        if (cfg.LastError != null) SetStatus(Loc.T("st_settings") + cfg.LastError, "#E06060");
 
         win.Show();
         StartActivationListener();
@@ -618,7 +629,7 @@ internal sealed class WidgetApp
     {
         if (!IsRgbFusionRunning())
         {
-            SetStatus("RGB Fusion не запущен", "#3DDC84");
+            SetStatus(Loc.T("st_rf_none"), "#3DDC84");
             return;
         }
         try
@@ -631,9 +642,9 @@ internal sealed class WidgetApp
             };
             var p = System.Diagnostics.Process.Start(psi);
             if (p != null) p.WaitForExit(8000);
-            SetStatus(IsRgbFusionRunning() ? "Не удалось закрыть RGB Fusion" : "RGB Fusion закрыт", "#3DDC84");
+            SetStatus(IsRgbFusionRunning() ? Loc.T("st_rf_fail") : Loc.T("st_rf_closed_short"), "#3DDC84");
         }
-        catch { SetStatus("Закрытие RGB Fusion отменено", "#E0A060"); }
+        catch { SetStatus(Loc.T("st_rf_cancel"), "#E0A060"); }
     }
 
     private static bool IsRgbFusionRunning()
@@ -744,26 +755,26 @@ internal sealed class WidgetApp
 
     private void ApplyColor()
     {
-        if (!hid.IsOpen) { SetStatus("Нет связи с контроллером", "#E06060"); return; }
+        if (!hid.IsOpen) { SetStatus(Loc.T("st_nolink"), "#E06060"); return; }
         if (!powerOn)
         {
             cfg.R = curR; cfg.G = curG; cfg.B = curB; cfg.Brightness = curBri; cfg.Save();
-            SetStatus("Цвет сохранён (подсветка выключена)", "#8A93A8");
+            SetStatus(Loc.T("st_saved_off"), "#8A93A8");
             return;
         }
         if (currentMode == 200)
         {
             if (music == null) music = new MusicEngine((r, g, b, br) => { if (powerOn && hid.IsOpen) hid.SetEffect(1, r, g, b, br, speedLevel); });
             music.Start();
-            SetStatus("Музыка — слушаю системный звук", "#3DDC84");
+            SetStatus(Loc.T("st_music"), "#3DDC84");
             return;
         }
         if (music != null) music.Stop();
 
         if (hid.SetEffect(currentMode, curR, curG, curB, curBri, speedLevel))
-            SetStatus("Применено " + string.Format("#{0:X2}{1:X2}{2:X2}", curR, curG, curB), "#3DDC84");
+            SetStatus(Loc.T("st_applied") + string.Format("#{0:X2}{1:X2}{2:X2}", curR, curG, curB), "#3DDC84");
         else
-            SetStatus("Не удалось применить цвет", "#E0A060");
+            SetStatus(Loc.T("st_failed"), "#E0A060");
         cfg.R = curR; cfg.G = curG; cfg.B = curB; cfg.Brightness = curBri; cfg.Save();
     }
 
@@ -772,6 +783,7 @@ internal sealed class WidgetApp
         header.MouseLeftButtonDown += (s, e) => { if (e.ButtonState == MouseButtonState.Pressed) { try { win.DragMove(); } catch { } } };
 
         powerBtn.Click += (s, e) => TogglePower();
+        langBtn.Click += (s, e) => SetLanguage(Loc.Lang == "ru" ? "en" : "ru");
         chanFixBtn.Click += (s, e) => ToggleChannelFix();
 
         pinBtn.Click += (s, e) => { win.Topmost = pinBtn.IsChecked == true; cfg.TopMost = win.Topmost; cfg.Save(); UpdatePinVisual(); };
@@ -802,7 +814,7 @@ internal sealed class WidgetApp
             briDrag = false;
             briHost.ReleaseMouseCapture();
             PickBrightness(e.GetPosition(briHost));
-            if (hid.IsOpen && hid.SetEffect(currentMode, curR, curG, curB, curBri, speedLevel)) SetStatus("Яркость " + curBri + "%", "#3DDC84");
+            if (hid.IsOpen && hid.SetEffect(currentMode, curR, curG, curB, curBri, speedLevel)) SetStatus(Loc.T("st_brightness", curBri), "#3DDC84");
             cfg.Brightness = curBri; cfg.Save();
         };
 
@@ -838,7 +850,7 @@ internal sealed class WidgetApp
             try
             {
                 tray.BalloonTipTitle = "ZERGB";
-                tray.BalloonTipText = "Приложение работает в трее. Клик по значку вернёт окно.";
+                tray.BalloonTipText = Loc.T("st_balloon");
                 tray.BalloonTipIcon = WinForms.ToolTipIcon.Info;
                 tray.ShowBalloonTip(4000);
             }
@@ -907,7 +919,7 @@ internal sealed class WidgetApp
                     currentMode = modeCodes[idx];
                     cfg.Mode = currentMode; cfg.Save();
                     ApplyColor();
-                    SetStatus("Эффект: " + modeTitles[idx], "#3DDC84");
+                    SetStatus(Loc.T("st_effect") + modeTitles[idx], "#3DDC84");
                 }
             }
         }
@@ -979,7 +991,7 @@ internal sealed class WidgetApp
             powerBtn.Foreground = Brush("#E06060");
             if (music != null) music.Stop();
             try { hid.SetOff(); } catch { }
-            SetStatus("Подсветка выключена", "#8A93A8");
+            SetStatus(Loc.T("st_off"), "#8A93A8");
         }
     }
 
@@ -1011,34 +1023,34 @@ internal sealed class WidgetApp
         modePanel.Children.Clear();
         var defs = new[]
         {
-            new object[] { (byte)1, "Статика" },
-            new object[] { (byte)2, "Дыхание" },
-            new object[] { (byte)3, "Мигание" },
-            new object[] { (byte)51, "2×миг." },
-            new object[] { (byte)4, "Радуга" },
-            new object[] { (byte)5, "Метеор" },
-            new object[] { (byte)6, "Волна" },
-            new object[] { (byte)7, "Рябь" },
-            new object[] { (byte)8, "Случайный" },
-            new object[] { (byte)200, "Музыка" },
-            new object[] { (byte)52, "Переход" },
-            new object[] { (byte)53, "Демо" },
-            new object[] { (byte)56, "Ритм" },
-            new object[] { (byte)100, "SWave" },
-            new object[] { (byte)102, "SMet." },
-            new object[] { (byte)103, "Дрожь" },
-            new object[] { (byte)104, "Взрыв" },
-            new object[] { (byte)105, "Возвр." },
-            new object[] { (byte)106, "2×мет." },
-            new object[] { (byte)107, "Стек" },
-            new object[] { (byte)109, "Дождь" },
-            new object[] { (byte)111, "DWave" },
-            new object[] { (byte)112, "SW2" }
+            new object[] { (byte)1, "mode_static" },
+            new object[] { (byte)2, "mode_pulse" },
+            new object[] { (byte)3, "mode_flash" },
+            new object[] { (byte)51, "mode_dflash" },
+            new object[] { (byte)4, "mode_cycle" },
+            new object[] { (byte)5, "mode_meteor" },
+            new object[] { (byte)6, "mode_wave" },
+            new object[] { (byte)7, "mode_ripple" },
+            new object[] { (byte)8, "mode_random" },
+            new object[] { (byte)200, "mode_music" },
+            new object[] { (byte)52, "mode_transition" },
+            new object[] { (byte)53, "mode_demo" },
+            new object[] { (byte)56, "mode_beat" },
+            new object[] { (byte)100, "mode_swave" },
+            new object[] { (byte)102, "mode_smeteor" },
+            new object[] { (byte)103, "mode_shake" },
+            new object[] { (byte)104, "mode_explode" },
+            new object[] { (byte)105, "mode_recover" },
+            new object[] { (byte)106, "mode_dmeteor" },
+            new object[] { (byte)107, "mode_stack" },
+            new object[] { (byte)109, "mode_rain" },
+            new object[] { (byte)111, "mode_dwave" },
+            new object[] { (byte)112, "mode_swave2" }
         };
         foreach (var def in defs)
         {
             byte code = (byte)def[0];
-            string title = (string)def[1];
+            string title = Loc.T((string)def[1]);
             modeCodes.Add(code); modeTitles.Add(title);
             var tb = new System.Windows.Controls.Primitives.ToggleButton();
             tb.Content = title;
@@ -1091,7 +1103,7 @@ internal sealed class WidgetApp
                 Height = 30,
                 Margin = new Thickness(0, 0, 6, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = hex + "  ·  ЛКМ — применить, ПКМ — сохранить",
+                ToolTip = hex + "  ·  " + Loc.T("tip_preset_act"),
                 Template = PresetTemplate(hex)
             };
             b.Click += (s, e) =>
@@ -1111,7 +1123,7 @@ internal sealed class WidgetApp
                 BuildPresets();
         BuildModes();
         BuildSpeed();
-                SetStatus("Пресет " + (idx + 1) + " сохранён", "#3DDC84");
+                SetStatus(Loc.T("st_preset_saved", idx + 1), "#3DDC84");
             };
             presetPanel.Children.Add(b);
         }
@@ -1184,32 +1196,74 @@ internal sealed class WidgetApp
         try { tray.Icon = LoadTrayIcon(); } catch { }
         tray.Text = "ZERGB"; Log("tray icon loaded: " + (tray.Icon != null));
         tray.Visible = true;
+        BuildTrayMenu();
+        tray.DoubleClick += (s, e) => RestoreWindow();
+        tray.MouseClick += (s, e) => { if (e.Button == WinForms.MouseButtons.Left) RestoreWindow(); };
+    }
 
+    private void BuildTrayMenu()
+    {
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("Открыть виджет", null, (s, e) => { win.Show(); win.Activate(); });
+        menu.Items.Add(Loc.T("tray_open"), null, (s, e) => { win.Show(); win.Activate(); });
 
-        var miTop = new WinForms.ToolStripMenuItem("Поверх всех окон") { CheckOnClick = true, Checked = win.Topmost };
+        var miTop = new WinForms.ToolStripMenuItem(Loc.T("tray_top")) { CheckOnClick = true, Checked = win.Topmost };
         miTop.Click += (s, e) => { win.Topmost = miTop.Checked; cfg.TopMost = miTop.Checked; cfg.Save(); UpdatePinVisual(); };
         menu.Items.Add(miTop);
 
-        miFix = new WinForms.ToolStripMenuItem("Поправка каналов (R→B→G)") { CheckOnClick = true, Checked = cfg.ChannelFix };
+        miFix = new WinForms.ToolStripMenuItem(Loc.T("tray_fix")) { CheckOnClick = true, Checked = cfg.ChannelFix };
         miFix.Click += (s, e) => { cfg.ChannelFix = miFix.Checked; hid.ChannelFix = miFix.Checked; cfg.Save(); UpdateChanFixVisual(); ApplyColor(); };
         menu.Items.Add(miFix);
 
-        var miAuto = new WinForms.ToolStripMenuItem("Автозапуск") { CheckOnClick = true, Checked = IsAutostartOn() };
+        var miAuto = new WinForms.ToolStripMenuItem(Loc.T("tray_auto")) { CheckOnClick = true, Checked = IsAutostartOn() };
         miAuto.Click += (s, e) => SetAutostart(miAuto.Checked);
         menu.Items.Add(miAuto);
 
-        var miKill = new WinForms.ToolStripMenuItem("Закрыть RGB Fusion");
+        var miKill = new WinForms.ToolStripMenuItem(Loc.T("tray_kill"));
         miKill.Click += (s, e) => CloseRgbFusionElevated();
         menu.Items.Add(miKill);
 
+        var miLang = new WinForms.ToolStripMenuItem(Loc.T("tray_lang"));
+        var miRu = new WinForms.ToolStripMenuItem("Русский") { Checked = Loc.Lang == "ru" };
+        miRu.Click += (s, e) => SetLanguage("ru");
+        var miEn = new WinForms.ToolStripMenuItem("English") { Checked = Loc.Lang == "en" };
+        miEn.Click += (s, e) => SetLanguage("en");
+        miLang.DropDownItems.Add(miRu);
+        miLang.DropDownItems.Add(miEn);
+        menu.Items.Add(miLang);
+
         menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("Выход", null, (s, e) => win.Close());
+        menu.Items.Add(Loc.T("tray_exit"), null, (s, e) => win.Close());
 
         tray.ContextMenuStrip = menu;
-        tray.DoubleClick += (s, e) => RestoreWindow();
-        tray.MouseClick += (s, e) => { if (e.Button == WinForms.MouseButtons.Left) RestoreWindow(); };
+    }
+
+    private void SetLanguage(string lang)
+    {
+        Loc.Lang = lang == "en" ? "en" : "ru";
+        cfg.Lang = Loc.Lang; cfg.Save();
+        UpdateLanguage();
+    }
+
+    private void UpdateLanguage()
+    {
+        if (briLabel != null) briLabel.Text = Loc.T("lbl_brightness");
+        if (effectLabel != null) effectLabel.Text = Loc.T("lbl_effect");
+        if (presetLabel != null) presetLabel.Text = Loc.T("lbl_presets");
+        if (presetHint != null) presetHint.Text = Loc.T("lbl_preset_hint");
+        if (channelsLabel != null) channelsLabel.Text = Loc.T("lbl_channels");
+        if (surfaceLabel != null) surfaceLabel.Text = Loc.T("lbl_surface");
+
+        if (powerBtn != null) powerBtn.ToolTip = Loc.T("tip_power");
+        if (pinBtn != null) pinBtn.ToolTip = Loc.T("tip_pin");
+        if (minBtn != null) minBtn.ToolTip = Loc.T("tip_min");
+        if (closeBtn != null) closeBtn.ToolTip = Loc.T("tip_close");
+        if (chanFixBtn != null) chanFixBtn.ToolTip = Loc.T("tip_fix");
+        if (langBtn != null) langBtn.Content = Loc.Lang == "ru" ? "EN" : "RU";
+
+        BuildModes();
+        BuildSpeed();
+        BuildPresets();
+        if (tray != null) BuildTrayMenu();
     }
 
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -1247,6 +1301,93 @@ internal sealed class WidgetApp
     }
 }
 
+/// <summary>Локализация интерфейса (ru/en).</summary>
+internal static class Loc
+{
+    public static string Lang = "ru";
+
+    private static readonly Dictionary<string, string[]> D = new Dictionary<string, string[]>
+    {
+        // подписи
+        { "lbl_brightness", new[] { "Яркость", "Brightness" } },
+        { "lbl_effect", new[] { "Эффект", "Effect" } },
+        { "lbl_presets", new[] { "Пресеты", "Presets" } },
+        { "lbl_preset_hint", new[] { "ПКМ — сохранить", "Right-click to save" } },
+        { "lbl_channels", new[] { "Каналы", "Channels" } },
+        { "lbl_surface", new[] { "Поверх", "Top" } },
+        // эффекты
+        { "mode_static", new[] { "Статика", "Static" } },
+        { "mode_pulse", new[] { "Дыхание", "Breathing" } },
+        { "mode_flash", new[] { "Мигание", "Flash" } },
+        { "mode_dflash", new[] { "2×миг.", "2×Flash" } },
+        { "mode_cycle", new[] { "Радуга", "Rainbow" } },
+        { "mode_meteor", new[] { "Метеор", "Meteor" } },
+        { "mode_wave", new[] { "Волна", "Wave" } },
+        { "mode_ripple", new[] { "Рябь", "Ripple" } },
+        { "mode_random", new[] { "Случайный", "Random" } },
+        { "mode_music", new[] { "Музыка", "Music" } },
+        { "mode_transition", new[] { "Переход", "Transition" } },
+        { "mode_demo", new[] { "Демо", "Demo" } },
+        { "mode_beat", new[] { "Ритм", "Beat" } },
+        { "mode_swave", new[] { "SWave", "SWave" } },
+        { "mode_smeteor", new[] { "SMet.", "SMeteor" } },
+        { "mode_shake", new[] { "Дрожь", "Shake" } },
+        { "mode_explode", new[] { "Взрыв", "Explode" } },
+        { "mode_recover", new[] { "Возвр.", "Recover" } },
+        { "mode_dmeteor", new[] { "2×мет.", "2×Meteor" } },
+        { "mode_stack", new[] { "Стек", "Stack" } },
+        { "mode_rain", new[] { "Дождь", "Rain" } },
+        { "mode_dwave", new[] { "DWave", "DWave" } },
+        { "mode_swave2", new[] { "SW2", "SWave2" } },
+        // трей
+        { "tray_open", new[] { "Открыть виджет", "Open widget" } },
+        { "tray_top", new[] { "Поверх всех окон", "Always on top" } },
+        { "tray_fix", new[] { "Поправка каналов (R→B→G)", "Channel fix (R→B→G)" } },
+        { "tray_kill", new[] { "Закрыть RGB Fusion", "Close RGB Fusion" } },
+        { "tray_auto", new[] { "Автозапуск", "Autostart" } },
+        { "tray_exit", new[] { "Выход", "Exit" } },
+        { "tray_lang", new[] { "Язык", "Language" } },
+        // статус
+        { "st_hid", new[] { "Прямое управление (HID)", "Direct control (HID)" } },
+        { "st_applied", new[] { "Применено ", "Applied " } },
+        { "st_off", new[] { "Подсветка выключена", "Lighting off" } },
+        { "st_saved_off", new[] { "Цвет сохранён (подсветка выключена)", "Color saved (lighting off)" } },
+        { "st_nolink", new[] { "Нет связи с контроллером", "No controller connection" } },
+        { "st_notfound", new[] { "Контроллер подсветки не найден", "Lighting controller not found" } },
+        { "st_music", new[] { "Музыка — слушаю системный звук", "Music — listening to system audio" } },
+        { "st_effect", new[] { "Эффект: ", "Effect: " } },
+        { "st_failed", new[] { "Не удалось применить цвет", "Failed to apply color" } },
+        { "st_rf_admin", new[] { "RGB Fusion запущен с правами админа — закройте через меню трея", "RGB Fusion is running as admin — close it from the tray menu" } },
+        { "st_rf_closed", new[] { "RGB Fusion закрыт, прямое управление (HID)", "RGB Fusion closed, direct control (HID)" } },
+        { "st_rf_none", new[] { "RGB Fusion не запущен", "RGB Fusion is not running" } },
+        { "st_rf_fail", new[] { "Не удалось закрыть RGB Fusion", "Failed to close RGB Fusion" } },
+        { "st_rf_cancel", new[] { "Закрытие RGB Fusion отменено", "Closing RGB Fusion canceled" } },
+        { "st_settings", new[] { "Настройки не сохраняются: ", "Settings not saving: " } },
+        { "st_brightness", new[] { "Яркость {0}%", "Brightness {0}%" } },
+        { "st_preset_saved", new[] { "Пресет {0} сохранён", "Preset {0} saved" } },
+        { "st_balloon", new[] { "Приложение работает в трее. Клик по значку вернёт окно.", "App is running in the tray. Click the icon to restore the window." } },
+        // тултипы
+        { "tip_power", new[] { "Включить/выключить подсветку", "Toggle lighting" } },
+        { "tip_pin", new[] { "Поверх всех окон", "Always on top" } },
+        { "tip_min", new[] { "Свернуть в трей", "Minimize to tray" } },
+        { "tip_close", new[] { "Закрыть", "Close" } },
+        { "tip_preset_act", new[] { "ЛКМ — применить, ПКМ — сохранить", "Left-click: apply, right-click: save" } },
+        { "st_rf_closed_short", new[] { "RGB Fusion закрыт", "RGB Fusion closed" } },
+        { "tip_fix", new[] { "Поправка каналов (R→B→G)", "Channel fix (R→B→G)" } }
+    };
+
+    public static string T(string key)
+    {
+        string[] v;
+        if (D.TryGetValue(key, out v)) return Lang == "ru" ? v[0] : v[1];
+        return key;
+    }
+
+    public static string T(string key, params object[] args)
+    {
+        return string.Format(T(key), args);
+    }
+}
 /// <summary>Реакция на музыку: захват системного звука (WASAPI loopback) и разбор спектра.</summary>
 internal sealed class MusicEngine
 {
