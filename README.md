@@ -6,9 +6,20 @@ required**.
 
 > ⚠️ This application was developed with AI assistance.
 
+<p align="center">
+  <a href="https://github.com/ZeSamar/ZERGB/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ZeSamar/ZERGB" alt="License"></a>
+  <a href="https://github.com/ZeSamar/ZERGB/releases"><img src="https://img.shields.io/github/v/release/ZeSamar/ZERGB" alt="Release"></a>
+  <a href="https://github.com/ZeSamar/ZERGB/releases"><img src="https://img.shields.io/github/downloads/ZeSamar/ZERGB/total" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/platform-Windows-blue" alt="Windows">
+  <img src="https://img.shields.io/badge/language-C%23-239120" alt="C#">
+  <img src="https://img.shields.io/badge/AI-assisted-8a2be2" alt="AI">
+</p>
+
 <img src="logo.png" width="120" alt="ZERGB">
 
 ![Screenshot](preview.png)
+
+<p align="center"><img src="demo.gif" alt="Demo" width="320"></p>
 
 ---
 
