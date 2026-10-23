@@ -119,9 +119,10 @@
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button x:Name="PowerBtn" Content="⏻" Style="{StaticResource IconBtn}" ToolTip="Включить/выключить подсветку"/>
-          <TextBlock Text="Каналы" Foreground="#8A93A8" FontSize="10" VerticalAlignment="Center" Margin="6,0,3,0"/>
+          <Button x:Name="LangBtn" Content="EN" Style="{StaticResource IconBtn}" ToolTip="English" FontSize="10" FontWeight="Bold"/>
+          <TextBlock x:Name="ChannelsLabel" Text="Каналы" Foreground="#8A93A8" FontSize="10" VerticalAlignment="Center" Margin="6,0,3,0"/>
           <ToggleButton x:Name="ChanFixBtn" Style="{StaticResource AppleToggle}" ToolTip="Поправка каналов (R→B→G)" Margin="0,0,0,0"/>
-          <TextBlock Text="Поверх" Foreground="#8A93A8" FontSize="10" VerticalAlignment="Center" Margin="6,0,3,0"/>
+          <TextBlock x:Name="SurfaceLabel" Text="Поверх" Foreground="#8A93A8" FontSize="10" VerticalAlignment="Center" Margin="6,0,3,0"/>
           <ToggleButton x:Name="PinBtn" Style="{StaticResource AppleToggle}" ToolTip="Поверх всех окон"/>
           <Button x:Name="MinBtn" Content="—" Style="{StaticResource IconBtn}" ToolTip="Свернуть в трей"/>
           <Button x:Name="CloseBtn" Content="✕" Style="{StaticResource IconBtn}" ToolTip="Закрыть"/>
@@ -147,7 +148,7 @@
       <!-- яркость -->
       <StackPanel Grid.Row="3" Margin="22,16,22,0">
         <Grid>
-          <TextBlock Text="Яркость" Foreground="#8A93A8" FontSize="11"/>
+          <TextBlock x:Name="BriLabel" Text="Яркость" Foreground="#8A93A8" FontSize="11"/>
           <TextBlock x:Name="BriText" Text="100%" HorizontalAlignment="Right" Foreground="#C9D1E0" FontSize="11"/>
         </Grid>
         <Grid x:Name="BriHost" Height="22" Margin="0,7,0,0" Background="Transparent">
@@ -161,7 +162,7 @@
       <!-- эффекты -->
       <StackPanel Grid.Row="4" Margin="22,12,22,0">
         <Grid>
-          <TextBlock Text="Эффект" Foreground="#8A93A8" FontSize="11" VerticalAlignment="Center"/>
+          <TextBlock x:Name="EffectLabel" Text="Эффект" Foreground="#8A93A8" FontSize="11" VerticalAlignment="Center"/>
           <Slider x:Name="SpeedSlider" Width="150" Minimum="0" Maximum="9" TickFrequency="1" IsSnapToTickEnabled="True" HorizontalAlignment="Right" VerticalAlignment="Center"/>
         </Grid>
         <ScrollViewer Height="106" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0"><UniformGrid x:Name="ModePanel" Columns="4"/></ScrollViewer>
@@ -170,8 +171,8 @@
       <!-- пресеты -->
       <StackPanel Grid.Row="5" Margin="22,10,22,0">
         <Grid>
-          <TextBlock Text="Пресеты" Foreground="#8A93A8" FontSize="11"/>
-          <TextBlock Text="ПКМ — сохранить" HorizontalAlignment="Right" Foreground="#4E5A70" FontSize="10"/>
+          <TextBlock x:Name="PresetLabel" Text="Пресеты" Foreground="#8A93A8" FontSize="11"/>
+          <TextBlock x:Name="PresetHint" Text="ПКМ — сохранить" HorizontalAlignment="Right" Foreground="#4E5A70" FontSize="10"/>
         </Grid>
         <UniformGrid x:Name="PresetPanel" Rows="1" Margin="0,8,0,0" Height="34"/>
       </StackPanel>
